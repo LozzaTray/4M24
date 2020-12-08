@@ -98,15 +98,15 @@ def grw(log_target, u0, data, K, G, n_iters, beta):
 
         lt_prev = log_target(u_prev, data, K, G)
 
-        u_new = # TODO: Propose new sample - use prior covariance, scaled by beta
+        u_new = None # TODO: Propose new sample - use prior covariance, scaled by beta
 
         lt_new = log_target(u_new, data, K, G)
 
-        log_alpha = # TODO: Calculate acceptance probability based on lt_prev, lt_new
+        log_alpha = None# TODO: Calculate acceptance probability based on lt_prev, lt_new
         log_u = np.log(np.random.random())
 
         # Accept/Reject
-        if # TODO: Compare log_alpha and log_u to accept/reject sample
+        if True:# TODO: Compare log_alpha and log_u to accept/reject sample
             acc += 1
             X.append(u_new)
             u_prev = u_new
@@ -138,15 +138,15 @@ def pcn(log_likelihood, u0, y, K, G, n_iters, beta):
 
         ll_prev = log_likelihood(u_prev, y, G)
 
-        u_new = # TODO: Propose new sample using pCN proposal
+        u_new = None # TODO: Propose new sample using pCN proposal
 
         ll_new = log_likelihood(u_new, y, G)
 
-        log_alpha = # TODO: Calculate pCN acceptance probability
+        log_alpha = None # TODO: Calculate pCN acceptance probability
         log_u = np.log(np.random.random())
 
         # Accept/Reject
-        if # TODO: Compare log_alpha and log_u to accept/reject sample
+        if True: # TODO: Compare log_alpha and log_u to accept/reject sample
             acc += 1
             X.append(u_new)
             u_prev = u_new
