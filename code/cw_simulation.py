@@ -4,9 +4,11 @@ from cw_functions import *
 
 
 ###--- Data Generation ---###
+seed = 0
+np.random.seed(seed)
 
 ### Inference grid defining {ui}i=1,Nx*Ny
-Nx = 16
+Nx = 16 # equivalent of D
 Ny = 16
 N = Nx * Ny     # Total number of coordinates
 points = [(x, y) for y in np.arange(Nx) for x in np.arange(Ny)]                # Indexes for the inference grid
@@ -20,11 +22,11 @@ idx = subsample(N, subsample_factor)
 M = len(idx)                                                                   # Total number of data points
 
 ### Generate K, the covariance of the Gaussian process, and sample from N(0,K) using a stable Cholesky decomposition
-l = 0.2
-K = GaussianKernel(coords, l)
-z = np.random.randn(N, )
-Kc = np.linalg.cholesky(K + 1e-6 * np.eye(N))
-u = Kc @ z
+l = 0.3
+C = GaussianKernel(coords, l)
+z = np.random.randn(N)
+Cc = np.linalg.cholesky(C + 1e-6 * np.eye(N))
+u = Cc @ z
 
 ### Observation model: v = G(u) + e,   e~N(0,I)
 G = get_G(N, idx)
@@ -48,8 +50,8 @@ log_likelihood = log_continuous_likelihood
 
 
 ### Plotting examples
-plot_3D(u, x, y)                                      # Plot original u surface
-plot_result(u, v, x, y, x[idx], y[idx])               # Plot original u with data v
+plot_3D(u, x, y, title="GP prior samples of u (l={})".format(l))  # Plot original u surface
+plot_result(u, v, x, y, x[idx], y[idx], title="Simulated data v overlaid onto u surface (l={})".format(l))               # Plot original u with data v
 
 
 ###--- Probit transform ---###
