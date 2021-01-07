@@ -4,6 +4,7 @@ from scipy.spatial import distance_matrix
 from scipy.stats import norm
 import matplotlib.cm as cm
 import copy
+from tqdm import tqdm
 
 
 def GaussianKernel(x, l):
@@ -49,7 +50,7 @@ def log_prior(u, C):
     N = len(u)
     N_term = (N / 2) * np.log(2 * np.pi)
 
-    sign, log_det = np.linalg.slogdet(C)[1]
+    sign, log_det = np.linalg.slogdet(C)
     det_term = (log_det * sign) / 2
 
     C_inv = np.linalg.inv(C)
@@ -97,7 +98,7 @@ def grw(log_target, u0, data, K, G, n_iters, beta):
     Inputs:
         log_target - log-target density
         u0 - initial sample
-        y - observed data
+        data - observed data
         K - prior covariance
         G - observation matrix
         n_iters - number of samples
@@ -106,23 +107,29 @@ def grw(log_target, u0, data, K, G, n_iters, beta):
         X - samples from target distribution
         acc/n_iters - the proportion of accepted samples"""
 
+    print("Performing GRW...")
+
     X = []
     acc = 0
     u_prev = u0
 
-    for i in range(n_iters):
+    N = K.shape[0]
+    Kc = np.linalg.cholesky(K + 1e6 * np.eye(N))
+
+    for i in tqdm(range(n_iters)):
 
         lt_prev = log_target(u_prev, data, K, G)
 
-        u_new = None # TODO: Propose new sample - use prior covariance, scaled by beta
+        z = np.random.randn(N)
+        u_new = u_prev + beta * Kc @ z # Propose new sample - use prior covariance, scaled by beta
 
         lt_new = log_target(u_new, data, K, G)
 
-        log_alpha = None# TODO: Calculate acceptance probability based on lt_prev, lt_new
-        log_u = np.log(np.random.random())
+        log_alpha = min(lt_new - lt_prev, 0) # Calculate acceptance probability based on lt_prev, lt_new
+        log_uniform_draw = np.log(np.random.random())
 
         # Accept/Reject
-        if True:# TODO: Compare log_alpha and log_u to accept/reject sample
+        if log_uniform_draw <= log_alpha:# Compare log_alpha and log_uniform_draw to accept/reject sample
             acc += 1
             X.append(u_new)
             u_prev = u_new
@@ -146,23 +153,30 @@ def pcn(log_likelihood, u0, y, K, G, n_iters, beta):
         X - samples from target distribution
         acc/n_iters - the proportion of accepted samples"""
 
+    print("Performing pCN...")
+
     X = []
     acc = 0
     u_prev = u0
 
-    for i in range(n_iters):
+    N = K.shape[0]
+    Kc = np.linalg.cholesky(K + 1e6 * np.eye(N))
+
+    for i in tqdm(range(n_iters)):
 
         ll_prev = log_likelihood(u_prev, y, G)
 
-        u_new = None # TODO: Propose new sample using pCN proposal
+        z = np.random.randn(N)
+        scaling = np.sqrt(1 - beta**2)
+        u_new = scaling * u_prev + beta * Kc @ z # Propose new sample using pCN proposal
 
         ll_new = log_likelihood(u_new, y, G)
 
-        log_alpha = None # TODO: Calculate pCN acceptance probability
-        log_u = np.log(np.random.random())
+        log_alpha = min(ll_new - ll_prev, 0) # Calculate pCN acceptance probability
+        log_uniform_draw = np.log(np.random.random())
 
         # Accept/Reject
-        if True: # TODO: Compare log_alpha and log_u to accept/reject sample
+        if log_uniform_draw <= log_alpha: # Compare log_alpha and log_u to accept/reject sample
             acc += 1
             X.append(u_new)
             u_prev = u_new

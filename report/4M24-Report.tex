@@ -7,6 +7,8 @@
 %packages
 \usepackage[margin=0.5in]{geometry}
 \usepackage[export]{adjustbox}
+\usepackage{algorithm}% http://ctan.org/pkg/algorithm
+\usepackage{algpseudocode}% http://ctan.org/pkg/algorithmicx
 \usepackage{mathtools}
 \usepackage{graphicx}
 \usepackage{amsmath}
@@ -34,6 +36,7 @@
 \newcommand{\Bcal}{\mathcal{B}}
 \newcommand{\cmplx}{\mathbb{C}}
 \newcommand{\Lcal}{\mathcal{L}}
+\newcommand{\lik}{\mathbb{L}}
 \newcommand{\Mcal}{\mathcal{M}}
 \newcommand{\indep}{\perp \!\!\! \perp}
 \newcommand{\iid}{\stackrel{iid}{\sim}}
@@ -42,7 +45,11 @@
 \newcommand{\xbold}{\boldsymbol{x}}
 \newcommand{\ubold}{\boldsymbol{u}}
 \newcommand{\vbold}{\boldsymbol{v}}
+\newcommand{\wbold}{\boldsymbol{w}}
+\newcommand{\zbold}{\boldsymbol{z}}
 \newcommand{\epsbold}{\boldsymbol{\epsilon}}
+\newcommand{\zetabold}{\boldsymbol{\zeta^*}}
+\newcommand{\omegabold}{\boldsymbol{\omega}}
 
 
 %section numbering
@@ -115,20 +122,129 @@ We observe $M=N/f=16^2/4=64$ samples contained in the $\vbold$ vector. These are
 
 \subsection{Log probabilities and MCMC}
 
+We assume that we have realised a set of observations $\vbold$ and it is now our job to determine probability distributions for $\ubold$ based on this information. As a matter of notation, we define the prior function $\pi(\cdot) \coloneqq p(\ubold=\cdot)$ and likelihood function $\lik(\cdot) \coloneqq \ln p (\vbold | \ubold = \cdot)$. Likewise, we define the posterior $\rho(\cdot) \coloneqq p(\ubold=\cdot | \vbold)$.
+
 The log prior can be calculated simply, through manipulation of the Gaussian pdf:
 %
 \begin{align}
-	\ln p (\ubold) &= \ln \Ncal(\ubold; 0, C) \nonumber \\
-	&= \ln \frac{1}{(2\pi)^{N/2} |C|^{1/2}} \exp \left( - \frac{1}{2} \ubold^T C^{-1} \ubold \right) \nonumber \\
-	&= - \left( \frac{N}{2} \ln 2\pi + \frac{1}{2} \ln |C| + \frac{1}{2} \ubold^T C^{-1} \ubold \right)
+	\ln \pi (\wbold) &= \ln \Ncal(\wbold; 0, C) \nonumber \\
+	&= \ln \frac{1}{(2\pi)^{N/2} |C|^{1/2}} \exp \left( - \frac{1}{2} \wbold^T C^{-1} \wbold \right) \nonumber \\
+	&= - \left( \frac{N}{2} \ln 2\pi + \frac{1}{2} \ln |C| + \frac{1}{2} \wbold^T C^{-1} \wbold \right)
 	\label{eqn:log-prior}
 \end{align}
 
 Likewise, $\vbold | \ubold$ is also a Gaussian such that $\vbold |\ubold \sim \Ncal(G\ubold, I)$ (see equation \ref{eqn:v-defn}). By comparison with the form of equation \ref{eqn:log-prior}, we can jump straight to the log-likelihood, noting that $\ln |I| = 0$:
 %
 \begin{equation}
-	\ln p(\vbold | \ubold) = - \left( \frac{M}{2} \ln 2 \pi + \frac{1}{2} \left(\vbold - G\ubold \right)^T \left(\vbold - G\ubold\right)\right)
+	\ln \lik(\wbold) = - \left( \frac{M}{2} \ln 2 \pi + \frac{1}{2} \left(\vbold - G\wbold \right)^T \left(\vbold - G\wbold\right)\right)
+	\label{eqn:log-likelihood}
 \end{equation}
+
+From these it is trivial to determine the log-posterior from Bayes' rule:
+%
+\begin{align}
+	\rho(\wbold) &\propto \pi(\wbold) \cdot \lik(\wbold) \nonumber \\
+	\therefore \ln \rho(\wbold) &= \ln \pi(\wbold) + \ln \lik(\wbold) + \textrm{const}
+	\label{eqn:log-posterior}
+\end{align}
+
+It is important to note that, $\wbold$ is simply a dummy variable.
+
+\subsubsection{Gaussian Random Walk - Metropolis Hastings (GRW-MH)}
+
+Armed with the log-posterior (equation \ref{eqn:log-posterior}), observations $\vbold$ and observation matrix $G$, we can now apply the Gaussian Random Walk Metropolis-Hastings algorithm to draw samples of $\ubold$ from the posterior. We start with an initial estimate drawn from the prior $\ubold^{(0)} \sim p(\ubold) = \Ncal(\ubold; 0, C)$. For simplicity we use the symbol $\zetabold$ to denote a fresh sample drawn from the prior $\pi \sim \Ncal(0, C)$. It is computed by applying a Cholesky decomposition to the covariance matrix $C$ and multiplying a standard Gaussian vector $\zbold \sim \Ncal(0, I)$. As such:
+%
+\begin{equation}
+	\zetabold = C^{1/2} \zbold
+	\label{eqn:zeta}
+\end{equation}
+
+To emphasise, every time $\zetabold$ appears in an equation we draw a fresh sample according to equation \ref{eqn:zeta}. We then pick a symmetric proposal distribution to sequentially generate samples. Given a sample $\ubold^{t}$ we generate a proposal $\wbold^{(t)}$ as follows:
+%
+\begin{equation}
+	\wbold^{(t)} \coloneqq \ubold^{(t)} + \beta \zetabold
+\end{equation}
+
+Where $\beta$ is a hyperparameter that controls the step-size of each iteration. As our proposal distribution is symmetric, the acceptance probability $\alpha^{(t)} \coloneqq \alpha(\ubold^{(t)}, \wbold^{(t)})$ simplifies to the ratio of posteriors (with an upper bound of 1):
+%
+\begin{equation}
+	\alpha(\ubold, \wbold) \coloneqq \min \left( \frac{\rho(\wbold)}{\rho(\ubold)}, 1 \right)
+\end{equation}
+
+It may be more natural to deal in log of this value:
+%
+\begin{equation}
+	\ln \alpha^{(t)} = \min \left(\ln \rho(\wbold^{(t)}) - \ln \rho(\ubold^{(t)}), 0\right)
+\end{equation}
+
+Naturally, we can sample a uniform random variable $U \sim \mathcal{U}(0, 1)$ and compare to $\alpha^{(t)}$:
+%
+\begin{align}
+	p(U < \alpha) &= \alpha \nonumber \\
+	\therefore p(\ln U < \ln \alpha) &= \alpha
+\end{align}
+
+As such the algorithm goes as follows:
+%
+\begin{algorithm}
+	\caption{Gaussian Random Walk - Metropolis Hastings}
+	\label{alg:grw-mh}
+\begin{algorithmic}
+	\State $\ubold^{(0)} \gets \zetabold$
+	\For{$t \in \{0, 1 \cdots T-1\}$}
+	\State $\wbold^{(t)} \gets \ubold^{(t)} + \beta \zetabold$ \Comment{Generate proposal}
+	\State $\ln \alpha^{(t)} \gets \min \left(\ln \rho(\wbold^{(t)}) - \ln \rho(\ubold^{(t)}), 0\right)$
+	\State $U^{(t)} \gets \sim \mathcal{U}(0,1)$ \\
+	\If {$\ln U^{(t)} \leq \ln \alpha^{(t)}$}
+		\State $\ubold^{(t+1)} \gets \wbold^{(t)}$ \Comment{Proposal accepted}
+	\Else
+		\State $\ubold^{(t+1)} \gets \ubold^{(t)}$ \Comment{Proposal rejected}
+	\EndIf
+	\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+As our algorithm depends only on the difference of the posteriors, there is no need to compute the constant term. This massively speeds up computation.
+
+\subsubsection{Preconditioned Crank-Nicholson (pCN)}
+
+Preconditioned Crank-Nicholson is rather similar, except we choose a subtly different proposal distribution:
+%
+\begin{equation}
+	\omegabold^{(t)} \coloneqq \sqrt{1 - \beta^2} \ubold^{(t)} + \beta \zetabold
+\end{equation}
+
+This changes the form of our acceptance probability subtly by exchanging the posterior $\rho$ for the likelihood $\lik$. The rest of the algorithm is broadly unchanged:
+%
+\begin{algorithm}
+	\caption{preconditioned Crank-Nicholsons}
+	\label{alg:pCN}
+	\begin{algorithmic}
+		\State $\ubold^{(0)} \gets \zetabold$
+		\For{$t \in \{0, 1 \cdots T-1\}$}
+		\State $\wbold^{(t)} \gets \sqrt{1 - \beta^2} \ubold^{(t)} + \beta \zetabold$ \Comment{Generate proposal}
+		\State $\ln \alpha^{(t)} \gets \min \left(\ln \lik(\wbold^{(t)}) - \ln \lik(\ubold^{(t)}), 0\right)$
+		\State $U^{(t)} \gets \sim \mathcal{U}(0,1)$ \\
+		\If {$\ln U^{(t)} \leq \ln \alpha^{(t)}$}
+		\State $\ubold^{(t+1)} \gets \wbold^{(t)}$ \Comment{Proposal accepted}
+		\Else
+		\State $\ubold^{(t+1)} \gets \ubold^{(t)}$ \Comment{Proposal rejected}
+		\EndIf
+		\EndFor
+	\end{algorithmic}
+\end{algorithm}
+
+One advantage is that we do not need to compute the prior probability for each proposal, speeding up computation.
+
+\subsection{Probit classification}
+
+\subsection{Length scale inference}
+
+\section{Spatial Data}
+
+\subsection{Poisson Likelihood}
+
+\subsection{Monte Carlo Estimation}
 
 \textbf{Words}: XX
 
