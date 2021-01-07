@@ -44,12 +44,28 @@ def predict_t(samples):
 
 ###--- Density fuctions ---###
 
-def log_prior(u, K):
-    return # TODO: Return log p(u)
+def log_prior(u, C):
+    """returns log-prior: log p(u)"""
+    N = len(u)
+    N_term = (N / 2) * np.log(2 * np.pi)
+
+    sign, log_det = np.linalg.slogdet(C)[1]
+    det_term = (log_det * sign) / 2
+
+    C_inv = np.linalg.inv(C)
+    u_term = (u.T @ C_inv @ u) / 2
+
+    return - (N_term + det_term + u_term)
 
 
 def log_continuous_likelihood(u, v, G):
-    return # TODO: Return observation likelihood p(v|u)
+    """returns log-likelihood: log p(v|u)"""
+    M = len(v)
+    M_term = (M / 2) * np.log(2 * np.pi)
+
+    diff = v - G @ u
+    v_term = (diff.T @ diff) / 2
+    return - (M_term + v_term)
 
 
 def log_probit_likelihood(u, t, G):
