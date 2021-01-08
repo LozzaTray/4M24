@@ -36,11 +36,13 @@ def get_G(N, idx):
 
 
 def probit(v):
-    return np.array([0 if x < 0 else 1 for x in v])
+    return np.array([-1 if x < 0 else 1 for x in v]) # was wrong
 
 
 def predict_t(samples):
-    return # TODO: Return MC estimate of the predictive probabiltiy
+    """Returns probability t^* is equal to 1"""
+    prob_t_one = norm.cdf(samples)
+    return np.mean(prob_t_one, axis=0)
 
 
 ###--- Density fuctions ---###
@@ -50,23 +52,36 @@ def log_prior(u, C):
     N = len(u)
     N_term = (N / 2) * np.log(2 * np.pi)
 
-    sign, log_det = np.linalg.slogdet(C)
-    det_term = (log_det * sign) / 2
+    _sign, log_det = np.linalg.slogdet(C)
+    det_term = (log_det) / 2
 
     C_inv = np.linalg.inv(C)
     u_term = (u.T @ C_inv @ u) / 2
 
     return - (N_term + det_term + u_term)
 
+def log_prior_fast(u, C):
+    _sign, log_det = np.linalg.slogdet(C)
+    det_term = 0.5 * log_det
+
+    C_inv = np.linalg.inv(C)
+    u_term = 0.5 * (u.T @ C_inv @ u)
+
+    return - (det_term + u_term)
+
 
 def log_continuous_likelihood(u, v, G):
     """returns log-likelihood: log p(v|u)"""
     M = len(v)
-    M_term = (M / 2) * np.log(2 * np.pi)
+    M_term = 0.5 * M * np.log(2 * np.pi)
 
     diff = v - G @ u
     v_term = (diff.T @ diff) / 2
     return - (M_term + v_term)
+
+def log_continuous_likelihood_fast(u, v, G):
+    diff = v - G @ u
+    return - 0.5 * (diff.T @ diff)
 
 
 def log_probit_likelihood(u, t, G):
@@ -82,7 +97,7 @@ def log_poisson_likelihood(u, c, G):
 
 
 def log_continuous_target(u, y, K, G):
-    return log_prior(u, K) + log_continuous_likelihood(u, y, G)
+    return log_prior_fast(u, K) + log_continuous_likelihood_fast(u, y, G)
 
 
 def log_probit_target(u, t, K, G):
@@ -117,11 +132,11 @@ def grw(log_target, u0, data, K, G, n_iters, beta):
     u_prev = u0
 
     N = K.shape[0]
-    Kc = np.linalg.cholesky(K + 1e6 * np.eye(N))
+    Kc = np.linalg.cholesky(K + 1e-6 * np.eye(N))
+
+    lt_prev = log_target(u_prev, data, K, G)
 
     for i in tqdm(range(n_iters)):
-
-        lt_prev = log_target(u_prev, data, K, G)
 
         z = np.random.randn(N)
         u_new = u_prev + beta * Kc @ z # Propose new sample - use prior covariance, scaled by beta
@@ -136,6 +151,7 @@ def grw(log_target, u0, data, K, G, n_iters, beta):
             acc += 1
             X.append(u_new)
             u_prev = u_new
+            lt_prev = lt_new
         else:
             X.append(u_prev)
 
@@ -163,14 +179,14 @@ def pcn(log_likelihood, u0, y, K, G, n_iters, beta):
     u_prev = u0
 
     N = K.shape[0]
-    Kc = np.linalg.cholesky(K + 1e6 * np.eye(N))
+    Kc = np.linalg.cholesky(K + 1e-6 * np.eye(N))
+
+    ll_prev = log_likelihood(u_prev, y, G)
 
     for i in tqdm(range(n_iters)):
 
-        ll_prev = log_likelihood(u_prev, y, G)
-
         z = np.random.randn(N)
-        scaling = np.sqrt(1 - beta**2)
+        scaling = np.sqrt(1 - pow(beta, 2))
         u_new = scaling * u_prev + beta * Kc @ z # Propose new sample using pCN proposal
 
         ll_new = log_likelihood(u_new, y, G)
@@ -183,6 +199,7 @@ def pcn(log_likelihood, u0, y, K, G, n_iters, beta):
             acc += 1
             X.append(u_new)
             u_prev = u_new
+            ll_prev = ll_new
         else:
             X.append(u_prev)
 

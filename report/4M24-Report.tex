@@ -284,8 +284,21 @@ The second line arises from the fact that $t_i \indep t_j | \ubold$ or more spec
 	\label{eqn:log-lik-probit}
 \end{align}
 
-Where $\odot$ denotes element-wise multiplication of vectors, $\ln$ and $\Phi$ are extended to operate element-wise also and $\mathbf{1}$ is simply the vector of all-ones. This form in equation \ref{eqn:log-lik-probit} is very easy to implement using numpy as it is vectorised.
+Where $\odot$ denotes element-wise multiplication of vectors, $\ln$ and $\Phi$ are extended to operate element-wise also and $\mathbf{1}$ is simply the vector of all-ones. This form in equation \ref{eqn:log-lik-probit} is very easy to implement using numpy as it is vectorised. With this log-likelihood function we can sample from the posterior $p(\ubold | \tbold)$ using pCN. From these samples we can perform a Monte Carlo estimate of the true class assignments for any $t^*_j$ not restricted to the subsampling imposed by $G$. The Monte-Carlo estimate is computed as follows:
+%
+\begin{align}
+	p(t^*_j = 1 | \tbold) &= \int p(t^* = 1, \ubold | \tbold) d\ubold \nonumber \\
+	&= \int p(t^* = 1 | \ubold) p(\ubold | \tbold) d\ubold \nonumber \\
+	&\approx \frac{1}{T} \sum_{t=1}^{T} p \left( t^* = 1 | \ubold^{(t)} \right) \nonumber \\
+	&= \frac{1}{T} \sum_{t=1}^{T} \Phi \left( u^{(t)}_j \right)
+\end{align}
 
+Where each $\ubold^{(t)}$ denotes a sample drawn from the posterior $p(\ubold | \tbold)$ as is the case under pCN. As we are bypassing the subsampling matrix $G$ both the $\tbold^*$ and $\ubold^*$ vectors are indexed by the same variable $j$, labelling position on the finite 2-D grid on the X-Y plane. We can quickly compute the vector of probabilities by dropping the $j$ dependence to give equation \ref{eqn:t-mc-estimate}:
+%
+\begin{equation}
+	p(\tbold^* | \tbold) \approx \frac{1}{T} \sum_{t=1}^{T} \Phi \left( \ubold^{(t)} \right)
+	\label{eqn:t-mc-estimate}
+\end{equation}
 \subsection{Length scale inference}
 
 \section{Spatial Data}

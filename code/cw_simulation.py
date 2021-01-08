@@ -37,11 +37,8 @@ v = G @ u + np.random.randn(M)
 
 ### Set MCMC parameters
 n = 10000
-beta = 0.2
+beta = 0.0002
 
-### Set the likelihood and target, for sampling p(u|v)
-log_target = log_continuous_target
-log_likelihood = log_continuous_likelihood
 
 ### Sample from prior for MCMC initialisation
 z = np.random.randn(N)
@@ -55,8 +52,8 @@ u0 = Cc @ z
 #plot_result(u, v, x, y, x[idx], y[idx], title="Simulated data v overlaid onto u surface (l={})".format(l))               # Plot original u with data v
 
 ### Q (b)
-grw_X, grw_accept = grw(log_target=log_target, u0=u0, data=v, K=C, G=G, n_iters=n, beta=beta)
-pcn_X, pcn_accept = pcn(log_likelihood=log_likelihood, u0=u0, y=v, K=C, G=G, n_iters=n, beta=beta)
+#grw_X, grw_accept = grw(log_target=log_continuous_target, u0=u0, data=v, K=C, G=G, n_iters=n, beta=beta)
+pcn_X, pcn_accept = pcn(log_likelihood=log_continuous_likelihood_fast, u0=u0, y=v, K=C, G=G, n_iters=n, beta=beta)
 
 
 ###--- Probit transform ---###
