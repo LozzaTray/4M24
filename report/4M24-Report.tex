@@ -36,12 +36,14 @@
 \newcommand{\Bcal}{\mathcal{B}}
 \newcommand{\cmplx}{\mathbb{C}}
 \newcommand{\Lcal}{\mathcal{L}}
-\newcommand{\lik}{\mathbb{L}}
+\newcommand{\lik}{\lambda}
+\newcommand{\loglik}{\Lambda}
 \newcommand{\Mcal}{\mathcal{M}}
 \newcommand{\indep}{\perp \!\!\! \perp}
 \newcommand{\iid}{\stackrel{iid}{\sim}}
 \newcommand{\betaml}{\hat{\beta}^{ML}}
 \newcommand{\Expect}{\mathbb{E}}
+\newcommand{\tbold}{\boldsymbol{t}}
 \newcommand{\xbold}{\boldsymbol{x}}
 \newcommand{\ubold}{\boldsymbol{u}}
 \newcommand{\vbold}{\boldsymbol{v}}
@@ -50,6 +52,7 @@
 \newcommand{\epsbold}{\boldsymbol{\epsilon}}
 \newcommand{\zetabold}{\boldsymbol{\zeta^*}}
 \newcommand{\omegabold}{\boldsymbol{\omega}}
+\newcommand{\Rho}{\mathcal{P}}
 
 
 %section numbering
@@ -145,10 +148,14 @@ From these it is trivial to determine the log-posterior from Bayes' rule:
 \begin{align}
 	\rho(\wbold) &\propto \pi(\wbold) \cdot \lik(\wbold) \nonumber \\
 	\therefore \ln \rho(\wbold) &= \ln \pi(\wbold) + \ln \lik(\wbold) + \textrm{const}
-	\label{eqn:log-posterior}
 \end{align}
 
-It is important to note that, $\wbold$ is simply a dummy variable.
+It is important to note that, $\wbold$ is simply a dummy variable. We can simplify this notation further by defining $\Rho \coloneqq \ln \rho + \textrm{const}$, $\Pi \coloneqq \ln \pi$ and $\loglik \coloneqq \ln \lik$. The constant can be chosen to give us:
+%
+\begin{equation}
+	\Rho(\omegabold) = \Pi(\omegabold) + \loglik(\omegabold)
+	\label{eqn:log-posterior}
+\end{equation}
 
 \subsubsection{Gaussian Random Walk - Metropolis Hastings (GRW-MH)}
 
@@ -174,10 +181,10 @@ Where $\beta$ is a hyperparameter that controls the step-size of each iteration.
 It may be more natural to deal in log of this value:
 %
 \begin{equation}
-	\ln \alpha^{(t)} = \min \left(\ln \rho(\wbold^{(t)}) - \ln \rho(\ubold^{(t)}), 0\right)
+	\ln \alpha^{(t)} = \min \left(\Rho(\wbold^{(t)}) - \Rho(\ubold^{(t)}), 0\right)
 \end{equation}
 
-Naturally, we can sample a uniform random variable $U \sim \mathcal{U}(0, 1)$ and compare to $\alpha^{(t)}$:
+Note that the constant term in the $\Rho$ definition cancels. Naturally, we can sample a uniform random variable $U \sim \mathcal{U}(0, 1)$ and compare to $\alpha^{(t)}$:
 %
 \begin{align}
 	p(U < \alpha) &= \alpha \nonumber \\
@@ -193,7 +200,7 @@ As such the algorithm goes as follows:
 	\State $\ubold^{(0)} \gets \zetabold$
 	\For{$t \in \{0, 1 \cdots T-1\}$}
 	\State $\wbold^{(t)} \gets \ubold^{(t)} + \beta \zetabold$ \Comment{Generate proposal}
-	\State $\ln \alpha^{(t)} \gets \min \left(\ln \rho(\wbold^{(t)}) - \ln \rho(\ubold^{(t)}), 0\right)$
+	\State $\ln \alpha^{(t)} \gets \min \left(\Rho(\wbold^{(t)}) - \Rho(\ubold^{(t)}), 0\right)$
 	\State $U^{(t)} \gets \sim \mathcal{U}(0,1)$ \\
 	\If {$\ln U^{(t)} \leq \ln \alpha^{(t)}$}
 		\State $\ubold^{(t+1)} \gets \wbold^{(t)}$ \Comment{Proposal accepted}
@@ -214,7 +221,7 @@ Preconditioned Crank-Nicholson is rather similar, except we choose a subtly diff
 	\omegabold^{(t)} \coloneqq \sqrt{1 - \beta^2} \ubold^{(t)} + \beta \zetabold
 \end{equation}
 
-This changes the form of our acceptance probability subtly by exchanging the posterior $\rho$ for the likelihood $\lik$. The rest of the algorithm is broadly unchanged:
+This changes the form of our acceptance probability subtly by exchanging the log-posterior $\Rho$ for the log-likelihood $\loglik$. The rest of the algorithm is broadly unchanged:
 %
 \begin{algorithm}
 	\caption{preconditioned Crank-Nicholsons}
@@ -223,7 +230,7 @@ This changes the form of our acceptance probability subtly by exchanging the pos
 		\State $\ubold^{(0)} \gets \zetabold$
 		\For{$t \in \{0, 1 \cdots T-1\}$}
 		\State $\wbold^{(t)} \gets \sqrt{1 - \beta^2} \ubold^{(t)} + \beta \zetabold$ \Comment{Generate proposal}
-		\State $\ln \alpha^{(t)} \gets \min \left(\ln \lik(\wbold^{(t)}) - \ln \lik(\ubold^{(t)}), 0\right)$
+		\State $\ln \alpha^{(t)} \gets \min \left(\loglik(\wbold^{(t)}) - \loglik(\ubold^{(t)}), 0\right)$
 		\State $U^{(t)} \gets \sim \mathcal{U}(0,1)$ \\
 		\If {$\ln U^{(t)} \leq \ln \alpha^{(t)}$}
 		\State $\ubold^{(t+1)} \gets \wbold^{(t)}$ \Comment{Proposal accepted}
@@ -237,6 +244,47 @@ This changes the form of our acceptance probability subtly by exchanging the pos
 One advantage is that we do not need to compute the prior probability for each proposal, speeding up computation.
 
 \subsection{Probit classification}
+
+The model is now extended to work on a probit classification problem. The data $\vbold$ is put through a sign function to give the vector $\tbold$, such that $t_i \coloneqq \textrm{sign}(v_i)$. As such the likelihood has the following form:
+%
+\begin{align}
+	p(t_i = 1 | \ubold) &= p(v_i > 0 | \ubold) \nonumber \\
+	&= p([G\ubold]_i + \epsilon_i > 0) \nonumber \\
+	&= p(-\epsilon_i < [G\ubold]_i ) \nonumber \\
+	&= \Phi([G\ubold]_i)
+\end{align}
+
+Where $\Phi(\cdot)$ is the standard Gaussian CDF (as $-\epsilon_i \sim \epsilon_i \sim \Ncal(0,1)$). Conversely, for the case $t_i = -1$ the likelihood is given by:
+%
+\begin{align}
+	p(t_i = -1 | \ubold) &= 1 - p(t_i = 1 | \ubold) \nonumber \\
+	&= 1 - \Phi([G\ubold]_i) \nonumber \\
+	&= \Phi(-1 \cdot [G\ubold]_i)
+\end{align}
+
+This means we can simplify the expression for $t_i \in {-1, 1}$, leading to:
+%
+\begin{equation}
+	p(t_i | \ubold_i) = \Phi(t_i \cdot [G\ubold]_i)
+\end{equation}
+
+We can extend this easily to find the likelihood $\lik(\cdot)$\footnote{Note that for simplicity we are not changing notation and all previous symbols in the $\vbold$ problem will retain their meaning for the $\tbold$ problem} of the latent variables $\ubold$ given the whole vector of observations $\tbold$:
+%
+\begin{align}
+	\lik(\ubold) &= p(\tbold | \ubold) \nonumber \\
+	&= \prod_{i=1}^{M} p(t_i | \ubold) \nonumber \\
+	&= \prod_{i=1}^{M} \Phi(t_i \cdot [G\ubold]_i)
+\end{align}
+
+The second line arises from the fact that $t_i \indep t_j | \ubold$ or more specifically given $G\ubold$. This a direct result of equation \ref{eqn:v-defn} as the noise terms $\epsilon_i$ are mutually independent. However, instead we find it easier to deal with the log-likelihood $\loglik(\cdot) \coloneqq \ln \lik(\cdot)$ as this turns the multiplication into a summation:
+%
+\begin{align}
+	\loglik(\ubold) &= \sum_{i=1}^{M} \ln \Phi(t_i \cdot [G\ubold]_i) \nonumber \\
+	&= \mathbf{1}^T \left[ \ln \Phi(\tbold \odot G\ubold) \right]
+	\label{eqn:log-lik-probit}
+\end{align}
+
+Where $\odot$ denotes element-wise multiplication of vectors, $\ln$ and $\Phi$ are extended to operate element-wise also and $\mathbf{1}$ is simply the vector of all-ones. This form in equation \ref{eqn:log-lik-probit} is very easy to implement using numpy as it is vectorised.
 
 \subsection{Length scale inference}
 

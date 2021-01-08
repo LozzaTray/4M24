@@ -70,8 +70,11 @@ def log_continuous_likelihood(u, v, G):
 
 
 def log_probit_likelihood(u, t, G):
-    phi = norm.cdf(G @ u)
-    return # TODO: Return likelihood p(t|u)
+    """returns log-likelihood: log p(t|u)"""
+    Gu = G @ u
+    tGu = np.multiply(t, G @ u)
+    vec = norm.logcdf(tGu)
+    return np.sum(vec)
 
 
 def log_poisson_likelihood(u, c, G):
