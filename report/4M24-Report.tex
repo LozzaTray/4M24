@@ -20,6 +20,7 @@
 \usepackage{listings}
 \usepackage{pdfpages}
 \usepackage{bbm}
+\usepackage{multirow}
 
 %package setup
 \graphicspath{{./img/}}
@@ -27,7 +28,7 @@
 \DeclareMathOperator*{\argmin}{arg\,min}
 
 %custom commands
-\newcommand{\figwidth}{0.6\linewidth}
+\newcommand{\figwidth}{0.4\linewidth}
 \newcommand{\Fcal}{\mathcal{F}}
 \newcommand{\idft}{\mathcal{F}^{-1}}
 \newcommand{\Xcal}{\mathcal{X}}
@@ -191,7 +192,7 @@ Note that the constant term in the $\Rho$ definition cancels. Naturally, we can 
 	\therefore p(\ln U < \ln \alpha) &= \alpha
 \end{align}
 
-As such the algorithm goes as follows:
+The algorithm for GRW-MH is given in algorithm \ref{alg:grw-mh}.
 %
 \begin{algorithm}
 	\caption{Gaussian Random Walk - Metropolis Hastings}
@@ -221,10 +222,10 @@ Preconditioned Crank-Nicholson is rather similar, except we choose a subtly diff
 	\omegabold^{(t)} \coloneqq \sqrt{1 - \beta^2} \ubold^{(t)} + \beta \zetabold
 \end{equation}
 
-This changes the form of our acceptance probability subtly by exchanging the log-posterior $\Rho$ for the log-likelihood $\loglik$. The rest of the algorithm is broadly unchanged:
+This changes the form of our acceptance probability subtly by exchanging the log-posterior $\Rho$ for the log-likelihood $\loglik$. The rest of the algorithm is broadly unchanged (see algorithm \ref{alg:pCN}).
 %
 \begin{algorithm}
-	\caption{preconditioned Crank-Nicholsons}
+	\caption{preconditioned Crank-Nicholson}
 	\label{alg:pCN}
 	\begin{algorithmic}
 		\State $\ubold^{(0)} \gets \zetabold$
@@ -241,7 +242,74 @@ This changes the form of our acceptance probability subtly by exchanging the log
 	\end{algorithmic}
 \end{algorithm}
 
-One advantage is that we do not need to compute the prior probability for each proposal, speeding up computation.
+A huge advantage of pCN compared to GRW-MH is that we do not need to compute the prior probability for each proposal. This massively speeds up computation.
+
+\subsubsection{Method comparison}
+
+We run both algorithms for $T=10^4$ iterations and $\beta=0.2$. The algorithm returns the set $\{ \ubold^{(t)} \}_{t=1}^{T}$ which can be averaged to return a Monte-Carlo estimate of $\ubold$ denoted $\hat{\ubold}$:
+%
+\begin{equation}
+	\hat{\ubold} = \frac{H}{T-B} \sum_{k=1}^{(T - B)/H} \ubold^{(B + ki)}
+\end{equation}
+
+The parameters $B$ and $H$ refer to the burn-in time and thinning rate respectively. This ensures that the estimate is unbiased and adjacent samples are uncorrelated. Choosing these parameters optimally is a report in itself. $B$ is chosen to be at least greater than the time it takes the Markov chain to reach a stationary distribution (can be estimated by plotting the sample magnitude with respect to iteration). $H$ is chosen by looking at the autocorellation of the generated samples and choosing an offset for which it is close to zero. We choose these to be $B=100$ and $H=5$ (justifications omitted for the sake of brevity).
+
+We plot the estimated surface $\hat{\ubold}$ predicted by each algorithm in figure \ref{fig:u-estimate}. However, this plot is not very easy to interpret as both look broadly similar. Instead, we prefer to plot the absolute error surface $|\hat{\ubold} - \ubold|$ as that better visualises the accuracy of the predictions.
+%
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{grw-mh-estimate.png}
+		\caption{GRW-MH estimate}
+		\label{fig:grw-estimate}
+	\end{subfigure}
+	\begin{subfigure}{0.31\linewidth}
+		\includegraphics[width=\linewidth]{pcn-estimate.png}
+		\caption{pCN estimate}
+		\label{fig:pcn-estimate}
+	\end{subfigure}
+	\caption{Monte Carlo estimate errors ($D=16, T=10^4, \beta=0.2$)}
+	\label{fig:u-estimate}
+\end{figure}
+
+The absolute error is plotted on figures \ref{fig:grw-err} and \ref{fig:pcn-err}. The error surface for each algorithm has a broadly similar shape (the mean absolute error is marginally higher for pCN). Indeed, by comparison with figure \ref{fig:v-2d}, the regions of high error are those in areas of sparse available data $\vbold$. This is to be expected as we cannot make a confident prediction in areas where we have few data-points.
+%
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{v-2d.png}
+		\caption{Data $v$ projected onto X-Y plane}
+		\label{fig:v-2d}
+	\end{subfigure}
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{grw-mh-err.png}
+		\caption{GRW-MH absolute error $|\hat{\ubold} - \ubold|$}
+		\label{fig:grw-err}
+	\end{subfigure}
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{pcn-err.png}
+		\caption{pCN absolute error $|\hat{\ubold} - \ubold|$}
+		\label{fig:pcn-err}
+	\end{subfigure}
+	\caption{Monte Carlo estimate errors ($D=16, T=10^4, \beta=0.2$)}
+	\label{fig:abs-error}
+\end{figure}
+
+The acceptance rate is an important measure of the wastefulness of the algorithm. We tabulate it in table \ref{tab:acceptance} for a range of grid-sizes $D$ and step-sizes $\beta$.
+%
+\begin{table}[!h]
+	\centering
+	\begin{tabular}{cc | cccc}
+		Acceptance Rate    &    & \multicolumn{3}{c}{$\beta$}                    &  \\
+		(GRW-MH $|$ pCN)       &    & 0.04          & 0.2           & 1.0            &           \\ \hline
+		\multirow{2}{*}{D} & 4  & 0.932 $|$ 0.973 & 0.692 $|$ 0.886 & 0.054 $|$ 0.302 &           \\
+		& 16 &   0.694 $|$ 0.851      &  0.097  $|$ 0.498         &    0.000 $|$  0.010  & 
+	\end{tabular}
+\caption{Acceptance rate for GRW-MH $|$ pCN algorithms for varying $\beta, D$}
+\label{tab:acceptance}
+\end{table}
+
+Comparing the two algorithms, pCN has a higher acceptance for all tested scenarios. Higher dimensional spaces (larger $D$) necessarily have lower acceptance rates as there are more degrees of freedom so it is less likely that a random walk will move in a direction that increases the posterior (or likelihood for pCN). The acceptance rate for both algorithms decreases as $\beta$ increases. Nevertheless, having $\beta$ too low runs the risk of falling into a local optimum as there is insufficient energy to escape shallow wells. Therefore, it is less likely to converge to the true global optimum.
 
 \subsection{Probit classification}
 

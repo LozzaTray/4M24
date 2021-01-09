@@ -55,19 +55,10 @@ def log_prior(u, C):
     _sign, log_det = np.linalg.slogdet(C)
     det_term = (log_det) / 2
 
-    C_inv = np.linalg.inv(C)
+    C_inv = np.linalg.inv(C + 1e-6 * np.eye(N))
     u_term = (u.T @ C_inv @ u) / 2
 
     return - (N_term + det_term + u_term)
-
-def log_prior_fast(u, C):
-    _sign, log_det = np.linalg.slogdet(C)
-    det_term = 0.5 * log_det
-
-    C_inv = np.linalg.inv(C)
-    u_term = 0.5 * (u.T @ C_inv @ u)
-
-    return - (det_term + u_term)
 
 
 def log_continuous_likelihood(u, v, G):
@@ -78,10 +69,6 @@ def log_continuous_likelihood(u, v, G):
     diff = v - G @ u
     v_term = (diff.T @ diff) / 2
     return - (M_term + v_term)
-
-def log_continuous_likelihood_fast(u, v, G):
-    diff = v - G @ u
-    return - 0.5 * (diff.T @ diff)
 
 
 def log_probit_likelihood(u, t, G):
@@ -97,7 +84,7 @@ def log_poisson_likelihood(u, c, G):
 
 
 def log_continuous_target(u, y, K, G):
-    return log_prior_fast(u, K) + log_continuous_likelihood_fast(u, y, G)
+    return log_prior(u, K) + log_continuous_likelihood(u, y, G)
 
 
 def log_probit_target(u, t, K, G):
