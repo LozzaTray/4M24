@@ -74,6 +74,7 @@
 
 \section{Introduction}
 
+\pagebreak
 \section{Simulation}
 \subsection{Sampling from a Gaussian Process}
 
@@ -249,10 +250,10 @@ A huge advantage of pCN compared to GRW-MH is that we do not need to compute the
 We run both algorithms for $T=10^4$ iterations and $\beta=0.2$. The algorithm returns the set $\{ \ubold^{(t)} \}_{t=1}^{T}$ which can be averaged to return a Monte-Carlo estimate of $\ubold$ denoted $\hat{\ubold}$:
 %
 \begin{equation}
-	\hat{\ubold} = \frac{H}{T-B} \sum_{k=1}^{(T - B)/H} \ubold^{(B + ki)}
+	\hat{\ubold} = \frac{1}{T} \sum_{t=1}^{T} \ubold^{(t)}
 \end{equation}
 
-The parameters $B$ and $H$ refer to the burn-in time and thinning rate respectively. This ensures that the estimate is unbiased and adjacent samples are uncorrelated. Choosing these parameters optimally is a report in itself. $B$ is chosen to be at least greater than the time it takes the Markov chain to reach a stationary distribution (can be estimated by plotting the sample magnitude with respect to iteration). $H$ is chosen by looking at the autocorellation of the generated samples and choosing an offset for which it is close to zero. We choose these to be $B=100$ and $H=5$ (justifications omitted for the sake of brevity).
+Formally we would apply burn-in $B$ and thinning $H$ but that is not the focus of this report. Choosing these parameters optimally is a report in itself. $B$ is chosen to be at least greater than the time it takes the Markov chain to reach a stationary distribution (can be estimated by plotting the sample magnitude with respect to iteration). $H$ is chosen by looking at the autocorellation of the generated samples and choosing an offset for which it is close to zero.
 
 We plot the estimated surface $\hat{\ubold}$ predicted by each algorithm in figure \ref{fig:u-estimate}. However, this plot is not very easy to interpret as both look broadly similar. Instead, we prefer to plot the absolute error surface $|\hat{\ubold} - \ubold|$ as that better visualises the accuracy of the predictions.
 %
@@ -313,7 +314,7 @@ Comparing the two algorithms, pCN has a higher acceptance for all tested scenari
 
 \subsection{Probit classification}
 
-The model is now extended to work on a probit classification problem. The data $\vbold$ is put through a sign function to give the vector $\tbold$, such that $t_i \coloneqq \textrm{sign}(v_i)$. As such the likelihood has the following form:
+The model is now extended to work on a probit classification problem. The data $\vbold$ is put through a sign function to give the vector $\tbold$, such that $t_i \coloneqq \textrm{sign}(v_i) \in \{-1, +1\}$. As such the likelihood has the following form:
 %
 \begin{align}
 	p(t_i = 1 | \ubold) &= p(v_i > 0 | \ubold) \nonumber \\
@@ -367,8 +368,33 @@ Where each $\ubold^{(t)}$ denotes a sample drawn from the posterior $p(\ubold | 
 	p(\tbold^* | \tbold) \approx \frac{1}{T} \sum_{t=1}^{T} \Phi \left( \ubold^{(t)} \right)
 	\label{eqn:t-mc-estimate}
 \end{equation}
+
+This is a Monte-Carlo estimate, using the generated samples. We can plot the predictive probabilities on figure \ref{fig:t-predictive}. We see that the predictive distribution broadly follows the shape of figure \ref{fig:sign-u}. This is particularly impressive given the corruption apparent in figure \ref{fig:t-2d}.
+%
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{sign-u.png}
+		\caption{True values $\tbold^* = sign(\ubold)$}
+		\label{fig:sign-u}
+	\end{subfigure}
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{t-2d.png}
+		\caption{Subsampled values after noise $\tbold$}
+		\label{fig:t-2d}
+	\end{subfigure}
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{t-predictive.png}
+		\caption{Predictive distribution $p(t^* = 1 | \tbold)$}
+		\label{fig:t-predictive}
+	\end{subfigure}
+	\caption{Monte Carlo estimate of probit data ($D=16, T=10^4, \beta=0.2$)}
+	\label{fig:t-estimate}
+\end{figure}
+
 \subsection{Length scale inference}
 
+We now make hard assignments in the probit classification problem by thresholding at $p(t^*=1 | \tbold) = 0.5$.
 \section{Spatial Data}
 
 \subsection{Poisson Likelihood}

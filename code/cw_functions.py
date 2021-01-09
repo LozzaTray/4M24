@@ -217,6 +217,20 @@ def plot_2D(counts, xi, yi, title=None, colors='viridis'):
     if title:  plt.title(title)
     plt.show()
 
+def plot_2D_unlimited(counts, xi, yi, title=None, colors='viridis'):
+    """Visualise count data given the index lists"""
+    scaling = np.max(np.abs(counts))
+    Z = - (scaling + 1) * np.ones((max(yi) + 1, max(xi) + 1))
+    for i in range(len(counts)):
+        Z[(yi[i], xi[i])] = counts[i]
+    my_cmap = copy.copy(cm.get_cmap(colors))
+    my_cmap.set_under('k', alpha=0)
+    fig, ax = plt.subplots()
+    im = ax.imshow(Z, origin='lower', cmap=my_cmap, clim=[np.min(counts), np.max(counts)])
+    fig.colorbar(im)
+    if title:  plt.title(title)
+    plt.show()
+
 
 def plot_result(u, data, x, y, x_d, y_d, title=None):
     """Plot the latent variable field u with the observations,
