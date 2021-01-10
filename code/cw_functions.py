@@ -80,7 +80,14 @@ def log_probit_likelihood(u, t, G):
 
 
 def log_poisson_likelihood(u, c, G):
-    return # TODO: Return likelihood p(counts|u)
+    """returns likelihood p(counts|u)"""
+    u_tilde = G @ u
+
+    exp_term = np.sum(np.exp(u_tilde))
+    cu_term = np.dot(c, u_tilde)
+
+    return - exp_term + cu_term
+
 
 
 def log_continuous_target(u, y, K, G):
@@ -229,6 +236,8 @@ def plot_2D_unlimited(counts, xi, yi, title=None, colors='viridis'):
     im = ax.imshow(Z, origin='lower', cmap=my_cmap, clim=[np.min(counts), np.max(counts)])
     fig.colorbar(im)
     if title:  plt.title(title)
+    plt.xlabel("x")
+    plt.ylabel("y")
     plt.show()
 
 

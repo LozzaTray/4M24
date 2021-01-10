@@ -69,14 +69,17 @@
 \maketitle
 
 \begin{abstract}
-	This report outlines the result of the 4M24 coursework on high-dimensional Markov Chain Monte Carlo (MCMC).
+	This report outlines the result of the 4M24 coursework on high-dimensional Markov Chain Monte Carlo (MCMC). We begin with the classical problem of generating a field from a Gaussian Process. From this field, we subsample and add noise to obtain data which we can use to infer the original field. This inference is performed through a Markov chain which can draw samples from the posterior distribution on the original field given the observed data.
+	
+	Two algorithms are compared: Gaussian Random Walk - Metropolis Hastings (GRW-MH) and preconditioned Crank-Nicholson (pCN). Both algorithms produce comparably accurate predictions but pCN is preferred for its higher acceptance rate and faster execution.
+	
+	More information is removed, by transforming the available data to only encode the sign (a probit transform). We apply pCN to infer the original binary field with great success. Furthermore, we are able to infer the original choice of length-scale used to generate the data by minimising the resulting prediction error.
+	
+	Lastly, we apply these tools to a real-world inference problem: modelling bike theft in the London Borough of Lewisham. pCN is once again used with some modifications to infer the underlying field from subsamples of its realisations. We find good agreement between model and observed data. However, the model's predictive power may be more useful if its length-scale is chosen from sound analysis of the problem a priori. Indeed, choosing the length-scale to minimise the prediction error runs the risk of overfitting to this particular dataset. Nevertheless, a full Bayesian treatment can be applied to augment the prior information with the likelihood information from the realised dataset. 
 \end{abstract}
 
 \tableofcontents
 
-\section{Introduction}
-
-\pagebreak
 \section{Simulation}
 \subsection{Sampling from a Gaussian Process}
 
@@ -116,7 +119,7 @@ We now proceed to make $M$ random draws (denoted by the $M \times 1$ vector $\vb
 	\label{eqn:v-defn}
 \end{equation}
 
-Where $G$ is an $M \times N$ matrix with a single one in each row in a random location (without repetition) and rest zeros. The result is that the observations $\vbold$ are a jumbled subsample of $\ubold$ with additive noise $\epsbold$. We can plot the data overlaid on the original prior samples by simply matching each entry of $\vbold$ back to the coordinate it was selected from. The result is plotted on figure \ref{fig:v-on-u}.
+Where $G$ is an $M \times N$ matrix with a single one in each row in a random location (without repetition) and rest zeros. In what follows, a tilde will denote a subsampled vector such that $\tilde{\ubold} \coloneqq G\ubold$. The result is that the observations $\vbold$ are a jumbled subsample of $\ubold$ with additive noise $\epsbold$. We can plot the data overlaid on the original prior samples by simply matching each entry of $\vbold$ back to the coordinate it was selected from. The result is plotted on figure \ref{fig:v-on-u}.
 %
 \begin{figure}[!h]
 	\centering
@@ -134,8 +137,7 @@ We assume that we have realised a set of observations $\vbold$ and it is now our
 The log prior can be calculated simply, through manipulation of the Gaussian pdf:
 %
 \begin{align}
-	\ln \pi (\wbold) &= \ln \Ncal(\wbold; 0, C) \nonumber \\
-	&= \ln \frac{1}{(2\pi)^{N/2} |C|^{1/2}} \exp \left( - \frac{1}{2} \wbold^T C^{-1} \wbold \right) \nonumber \\
+	\ln \pi (\wbold) &= \ln \Ncal(\wbold; 0, C) \ln \frac{1}{(2\pi)^{N/2} |C|^{1/2}} \exp \left( - \frac{1}{2} \wbold^T C^{-1} \wbold \right) \nonumber \\
 	&= - \left( \frac{N}{2} \ln 2\pi + \frac{1}{2} \ln |C| + \frac{1}{2} \wbold^T C^{-1} \wbold \right)
 	\label{eqn:log-prior}
 \end{align}
@@ -319,55 +321,52 @@ Comparing the two algorithms, pCN has a higher acceptance for all tested scenari
 The model is now extended to work on a probit classification problem. The data $\vbold$ is put through a sign function to give the vector $\tbold$, such that $t_i \coloneqq \textrm{sign}(v_i) \in \{-1, +1\}$. As such the likelihood has the following form:
 %
 \begin{align}
-	p(t_i = 1 | \ubold) &= p(v_i > 0 | \ubold) \nonumber \\
-	&= p([G\ubold]_i + \epsilon_i > 0) \nonumber \\
-	&= p(-\epsilon_i < [G\ubold]_i ) \nonumber \\
-	&= \Phi([G\ubold]_i)
+	p(t_i = 1 | \ubold) &= p(v_i > 0 | \ubold) = p([G\ubold]_i + \epsilon_i > 0) \nonumber \\
+	&= p(-\epsilon_i < \tilde{u}_i ) \nonumber \\
+	&= \Phi(\tilde{u}_i)
 \end{align}
 
-Where $\Phi(\cdot)$ is the standard Gaussian CDF (as $-\epsilon_i \sim \epsilon_i \sim \Ncal(0,1)$). Conversely, for the case $t_i = -1$ the likelihood is given by:
+Where $\Phi(\cdot)$ is the standard Gaussian CDF (as $-\epsilon_i \sim \epsilon_i \sim \Ncal(0,1)$). Note that the tilde denotes subsampling $\tilde{\ubold} \coloneqq G\ubold$. Conversely, for the case $t_i = -1$ the likelihood is given by:
 %
 \begin{align}
 	p(t_i = -1 | \ubold) &= 1 - p(t_i = 1 | \ubold) \nonumber \\
-	&= 1 - \Phi([G\ubold]_i) \nonumber \\
-	&= \Phi(-1 \cdot [G\ubold]_i)
+	&= 1 - \Phi(\tilde{u}_i) \nonumber \\
+	&= \Phi(-1 \cdot \tilde{u}_i)
 \end{align}
 
 This means we can simplify the expression for $t_i \in {-1, 1}$, leading to:
 %
 \begin{equation}
-	p(t_i | \ubold_i) = \Phi(t_i \cdot [G\ubold]_i)
+	p(t_i | \ubold_i) = \Phi(t_i \cdot \tilde{u}_i)
 \end{equation}
 
 We can extend this easily to find the likelihood $\lik(\cdot)$\footnote{Note that for simplicity we are not changing notation and all previous symbols in the $\vbold$ problem will retain their meaning for the $\tbold$ problem} of the latent variables $\ubold$ given the whole vector of observations $\tbold$:
 %
 \begin{align}
-	\lik(\ubold) &= p(\tbold | \ubold) \nonumber \\
-	&= \prod_{i=1}^{M} p(t_i | \ubold) \nonumber \\
-	&= \prod_{i=1}^{M} \Phi(t_i \cdot [G\ubold]_i)
+	\lik(\ubold) &= p(\tbold | \ubold) = \prod_{i=1}^{M} p(t_i | \ubold) = \prod_{i=1}^{M} \Phi(t_i \cdot \tilde{u}_i)
 \end{align}
 
-The second line arises from the fact that $t_i \indep t_j | \ubold$ or more specifically given $G\ubold$. This a direct result of equation \ref{eqn:v-defn} as the noise terms $\epsilon_i$ are mutually independent. However, instead we find it easier to deal with the log-likelihood $\loglik(\cdot) \coloneqq \ln \lik(\cdot)$ as this turns the multiplication into a summation:
+The second line arises from the fact that $t_i \indep t_j | \ubold$ or more specifically given $\tilde{\ubold} = G\ubold$. This a direct result of equation \ref{eqn:v-defn} as the noise terms $\epsilon_i$ are mutually independent. However, instead we find it easier to deal with the log-likelihood $\loglik(\cdot) \coloneqq \ln \lik(\cdot)$ as this turns the multiplication into a summation:
 %
 \begin{align}
-	\loglik(\ubold) &= \sum_{i=1}^{M} \ln \Phi(t_i \cdot [G\ubold]_i) \nonumber \\
-	&= \mathbf{1}^T \left[ \ln \Phi(\tbold \odot G\ubold) \right]
+	\loglik(\ubold) &= \sum_{i=1}^{M} \ln \Phi(t_i \cdot \tilde{u}_i) = \mathbf{1}^T \left[ \ln \Phi(\tbold \odot \tilde{\ubold}) \right]
 	\label{eqn:log-lik-probit}
 \end{align}
 
 Where $\odot$ denotes element-wise multiplication of vectors, $\ln$ and $\Phi$ are extended to operate element-wise also and $\mathbf{1}$ is simply the vector of all-ones. This form in equation \ref{eqn:log-lik-probit} is very easy to implement using numpy as it is vectorised. With this log-likelihood function we can sample from the posterior $p(\ubold | \tbold)$ using pCN. From these samples we can perform a Monte Carlo estimate of the true class assignments for any $t^*_j$ not restricted to the subsampling imposed by $G$. The Monte-Carlo estimate is computed as follows:
 %
 \begin{align}
-	p(t^*_j = 1 | \tbold) &= \int p(t^* = 1, \ubold | \tbold) d\ubold \nonumber \\
-	&= \int p(t^* = 1 | \ubold) p(\ubold | \tbold) d\ubold \nonumber \\
-	&\approx \frac{1}{T} \sum_{t=1}^{T} p \left( t^* = 1 | \ubold^{(t)} \right) \nonumber \\
-	&= \frac{1}{T} \sum_{t=1}^{T} \Phi \left( u^{(t)}_j \right)
+	p(t^*_j = 1 | \tbold) &= \int p(t^*_j = 1, \ubold | \tbold) d\ubold \nonumber \\
+	&= \int p(t^*_j = 1 | \ubold) p(\ubold | \tbold) d\ubold \nonumber \\
+	&\approx \frac{1}{T} \sum_{i=1}^{T} p \left( t^*_j = 1 | \ubold^{(i)} \right)
+	\quad \textrm{for } \ubold^{(i)} \sim p(\ubold | \tbold) \nonumber \\
+	&= \frac{1}{T} \sum_{i=1}^{T} \Phi \left( u^{(t)}_j \right)
 \end{align}
 
-Where each $\ubold^{(t)}$ denotes a sample drawn from the posterior $p(\ubold | \tbold)$ as is the case under pCN. As we are bypassing the subsampling matrix $G$ both the $\tbold^*$ and $\ubold^*$ vectors are indexed by the same variable $j$, labelling position on the finite 2-D grid on the X-Y plane. We can quickly compute the vector of probabilities by dropping the $j$ dependence to give equation \ref{eqn:t-mc-estimate}:
+It is important to note that both the $\tbold^*$ and $\ubold$ vectors are indexed by the same variable $j$, labelling position on the finite 2-D grid. We can quickly compute the vector of probabilities by dropping the $j$ dependence to give equation \ref{eqn:t-mc-estimate}.
 %
 \begin{equation}
-	p(\tbold^* | \tbold) \approx \frac{1}{T} \sum_{t=1}^{T} \Phi \left( \ubold^{(t)} \right)
+	p(\tbold^* | \tbold) \approx \frac{1}{T} \sum_{i=1}^{T} \Phi \left( \ubold^{(i)} \right)
 	\label{eqn:t-mc-estimate}
 \end{equation}
 
@@ -377,7 +376,7 @@ This is a Monte-Carlo estimate, using the generated samples. We can plot the pre
 	\centering
 	\begin{subfigure}{0.32\linewidth}
 		\includegraphics[width=\linewidth]{sign-u.png}
-		\caption{True values $\tbold^* = sign(\ubold)$}
+		\caption{True values $\tbold^* = \textrm{sign}(\ubold)$}
 		\label{fig:sign-u}
 	\end{subfigure}
 	\begin{subfigure}{0.32\linewidth}
@@ -447,6 +446,7 @@ Nevertheless, the method used to infer the estimate is hardly robust. A more gen
 %
 \begin{equation}
 	p(\ubold | \tbold, l) = \frac{p(\ubold | l) \cdot p(\tbold | \ubold, l)}{p(\tbold | l)}
+	\label{eqn:bayes}
 \end{equation}
 
 The term $p(\tbold | l)$ is independent of $\ubold$ and called the model evidence. It can be computed through a Monte-Carlo estimate as follows:
@@ -454,49 +454,66 @@ The term $p(\tbold | l)$ is independent of $\ubold$ and called the model evidenc
 \begin{align}
 	p(\tbold | l) &= \int p(\tbold | \ubold, l) \cdot p(\ubold | l) d\ubold = \int p(\tbold | \ubold) \cdot p(\ubold | l) d\ubold  \nonumber \\
 	&\approx \frac{1}{T} \sum_{i=1}^{T} p(\tbold | \ubold^{(i)}) \quad \textrm{for } \ubold^{(i)} \sim p(\ubold | l) \nonumber \\
-	&= \frac{1}{T} \sum_{i=1}^{T} \prod_{j=1}^{M} \Phi(t_j \cdot [G\ubold^{(i)}]_j)
+	&= \frac{1}{T} \sum_{i=1}^{T} \prod_{j=1}^{M} \Phi(t_j \cdot \tilde{u}^{(i)}]_j)
 \end{align}
 
 With this equation we can compute a Maximum-Likelihood estimate $\hat{l}^{ML} = \argmax_l p(\tbold | l)$; this is equivalent to maximising the model evidence. If we wanted to give $l$ a full Bayesian treatment, we would define a prior $p(l)$ and compute the posterior $p(l | \tbold) \propto p(l) \cdot p(\tbold | l)$. The posterior would be a complete probability distribution rather than a single point-estimate.
 
-\pagebreak
 \section{Spatial Data}
 
-We now turn our attention to real-world data. Specifically, we wish to develop a model to predict bike thefts in Lewisham borough based on spatial theft data. We have a series of 400m$^2$ cells identified by a $(x, y)$ coordinate and for each cell we have the total number of bike thefts within over 2015. This is denoted by a vector $\cbold$.
+We now turn our attention to real-world data. Specifically, we wish to develop a model to predict bike thefts in Lewisham borough based on spatial theft data. We have a series of 400m$^2$ cells identified by a $(x, y)$ coordinate and for each cell we have the total number of bike thefts within over 2015. This is denoted by a vector $\cbold$. For simplicity we use a tilde to denote the subsampled vectors $\tilde{\thetabold} \coloneqq G\thetabold$, $\tilde{\ubold} \coloneqq G\ubold$ and $\tilde{\cbold} \coloneqq G\cbold$. Once again, we emphasise that the original vectors have length $N$ which decreases to $M$ after the subsampling operation $G$.
 
 \subsection{Poisson Likelihood}
 
 We now deal with a Poisson likelihood. The field $\ubold$ is mapped to $\thetabold = \exp (\ubold)$ for positivity (there cannot be negative thefts in a region) and $\theta$ is used as the Poisson rate for each cell. The overall likelihood function is given below:
 %
 \begin{equation}
-	p(\cbold | \thetabold) = \prod_{i=1}^{N} p(c_i | \theta_i)
-	= \prod_{i=1}^{N} \frac{\exp (-\theta_i) \cdot \theta_i^{c_i}}{c_i!}
+	p(\tilde{\cbold} | \thetabold) = \prod_{i=1}^{M} p(\tilde{c}_i | \tilde{\theta}_i)
+	= \prod_{i=1}^{M} \frac{\exp (-\tilde{\theta}_i) \cdot \tilde{\theta}_i^{\tilde{c}_i}}{\tilde{c}_i!}
 \end{equation}
 
 As always we prefer to work with the log-likelihood giving us:
 %
 \begin{align}
-	\ln p (\cbold | \thetabold) &= \sum_{i=1}^{N} \left( - \theta_i + c_i \ln \theta_i - \ln (c_i !) \right)
+	\ln p (\tilde{\cbold} | \thetabold) &= \sum_{i=1}^{M} \left( - \tilde{\theta_i} + \tilde{c}_i \ln \tilde{\theta}_i - \ln (\tilde{c}_i !) \right)
 \end{align}
 
-Substituting for $\thetabold = \exp (u)$ we get:
+Substituting for $\thetabold = \exp (\ubold)$ we get:
 %
 \begin{align}
-	\loglik(\ubold) &= \sum_{i=1}^{N} \left(- 
-		\exp(u_i) + c_i \cdot u_i - \ln(c_i !)
+	\loglik(\ubold) &= \sum_{i=1}^{M} \left(- 
+		\exp(\tilde{u}_i) + \tilde{c}_i \cdot \tilde{u}_i - \ln(\tilde{c}_i !)
 	\right) \nonumber \\
-	&= - \mathbf{1}^T \exp(\ubold) + \cbold^T \ubold - f(\cbold)
+	&= - \mathbf{1}^T \exp(\tilde{\ubold}) + \tilde{\cbold}^T \tilde{\ubold} - f(\tilde{\cbold})
 	\label{eqn:log-lik-poisson}
 \end{align}
 
-We can ignore the term $f(\cbold)$ for the purposes of pCN as it is independent of $\ubold$ and we are only interested in the difference of $\loglik$. Once we implement $\loglik(\ubold)$ we can use pCN to sample from the posterior $p(\ubold | \cbold)$ with our standard operating parameters. Nevertheless, we must begin by guessing the length-scale parameter $l$ as this is not known in advance. This is covered in the subsequent section.
+We can ignore the term $f(\tilde{\cbold})$ for the purposes of pCN as it is independent of $\ubold$ and we are only interested in the difference of $\loglik$. Once we implement $\loglik(\ubold)$ we can use pCN to sample from the posterior $p(\ubold | \tilde{\cbold})$ with our standard operating parameters. Nevertheless, we must begin by guessing the length-scale parameter $l$ as this is not known in advance. This is covered in the subsequent section.
+
+By way of reference, we plot the original bike theft field $\cbold$ and the subsampled data we feed to the pCN algorithm in figures \ref{fig:c-original} and \ref{fig:c-tilde} respectively.
+%
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{c-original.png}
+		\caption{Original data $\cbold$}
+		\label{fig:c-original}
+	\end{subfigure}
+	\begin{subfigure}{0.31\linewidth}
+		\includegraphics[width=\linewidth]{c-tilde.png}
+		\caption{Subsampled data for pCN $\tilde{\cbold}$}
+		\label{fig:c-tilde}
+	\end{subfigure}
+	\caption{Bike theft data for Lewisham}
+	\label{fig:bike-theft-data}
+\end{figure}
 
 \subsection{Bike theft predictions}
 
-We wish to estimate the expected counts in each cell from the predictive distribution on a new cell $c_j^*$ given the subsampled counts $\cbold$:
+We wish to estimate the expected counts $\hat{c}^*_j$ in each cell from the predictive distribution given the subsampled counts $\tilde{\cbold}$. The asterisk emphasises that this cell can have an arbitrary location not restricted to the subsampling imposed by $G$.
 %
 \begin{equation}
-	\Expect_{p(c_j^*| \cbold)}[c^*] = \sum_{k=0}^{\infty} k \cdot p(c_j^* = k | \cbold)
+	\hat{c}^*_j \coloneqq \Expect \left[ c^*_j | \tilde{\cbold} \right] = \sum_{k=0}^{\infty} k \cdot p(c_j^* = k | \tilde{\cbold})
 	\label{eqn:c-star-expect-start}
 \end{equation}
 
@@ -504,18 +521,72 @@ The predictive distribution can be computed through a Monte-Carlo estimate as fo
 %
 \begin{align}
 	p(c_j^* = k | \cbold) &= \int p(c_j^* = k | \ubold) \cdot p(\ubold | \cbold) d\ubold \nonumber \\
-	&\approx \frac{1}{T} \sum_{i=1}^{T} p(c_j^* = k | \ubold^{(i)}) \quad \textrm{for } \ubold^{(i)} \sim p(\ubold | \cbold)
+	&\approx \frac{1}{T} \sum_{i=1}^{T} p(c_j^* = k | \ubold^{(i)}) \quad \textrm{for } \ubold^{(i)} \sim p(\ubold | \tilde{\cbold})
 \end{align}
 
 Substituting into equation \ref{eqn:c-star-expect-start} we can rearrange to obtain:
 %
 \begin{align}
-	\Expect_{p(c_j^*| \cbold)}[c_j^*] &\approx \sum_{k=0}^{\infty} k \cdot \frac{1}{T} \sum_{i=1}^{T} p(c_j^* = k | \ubold^{(i)}) \nonumber \\
+	\hat{c}^*_j &\approx \sum_{k=0}^{\infty} k \cdot \frac{1}{T} \sum_{i=1}^{T} p(c_j^* = k | \ubold^{(i)}) \nonumber \\
 	&= \frac{1}{T} \sum_{i=1}^{T} \sum_{k=0}^{\infty} k \cdot p(c^*_j = k | \theta^{(i)}_j) \nonumber \\
-	&= \frac{1}{T} \sum_{i=1}^{T} \Expect_{p(c_j^*| \theta_j^{(i)})} [c_j^*] \nonumber \\
+	&= \frac{1}{T} \sum_{i=1}^{T} \Expect \left[ c_j^* | \theta_j^{(i)} \right] \nonumber \\
 	&= \frac{1}{T} \sum_{i=1}^{T} \theta_j^{(i)} \label{eqn:c-star-expect-final}
 \end{align}
 
-Where the last line holds as the expectation of a Poisson variable is simply its parameter. Therefore, we can perform pCN with the subsampled counts $\cbold$ to produce samples $\ubold^{(i)} \sim p(\ubold | \cbold)$. From these we can compute the expected count field by transforming $\thetabold^{(i)} = \exp (\ubold^{(i)})$ and applying equation \ref{eqn:c-star-expect-final}.
+Where the last line holds as the expectation of a Poisson variable is simply its parameter. Therefore, we can perform pCN with the subsampled counts $\tilde{\cbold}$ to produce samples $\ubold^{(i)} \sim p(\ubold | \cbold)$. From these we can compute the expected count field by transforming $\thetabold^{(i)} = \exp (\ubold^{(i)})$ and applying equation \ref{eqn:c-star-expect-final}.
 
+The first pass we perform uses the parameters $l=2, \beta=0.2, T=10^4$ and subsampling factor $f=3$. This yields the plots in figure \ref{fig:bike-predictions}. We see that these model settings yield an inferred field (figure \ref{fig:c-hat}) that roughly matches the empirical thefts in figure \ref{fig:c-original}. The hotspots are in the right locations but the choice of $l=2$ means that they leak into adjacent cells which does not happen frequently in the original dataset.
+%
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{c-hat.png}
+		\caption{Inferred field $\hat{\cbold}^*$}
+		\label{fig:c-hat}
+	\end{subfigure}
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{c-err.png}
+		\caption{Absolute error field $|\hat{c}^*_j - c_j|$}
+		\label{fig:c-error}
+	\end{subfigure}
+	\caption{Bike theft predictions ($l=2, \beta=0.2, T=10^4, f=3$)}
+	\label{fig:bike-predictions}
+\end{figure}
+
+The absolute error field (figure \ref{fig:c-error}) has modest values but we see our predictions are thrown off in the Northern region. To be fair, this region sees large variations from cell-to-cell in the original data so we cannot expect a model with modestly large length-scale $l=2$ to predict all the cells well.
+
+Lastly, we visualise the impact of extreme values of length-scale $l$ on the inferred field. This is plotted on figures \ref{fig:l-small} and \ref{fig:l-large}. The short length-scale (figure \ref{fig:l-small}) looks more similar to the true field in \ref{fig:c-original} however its greatest weakness is the subsampling. As the length-scale is so short $l=0.01$ adjacent cells (separated by a distance of 1) are basically independent. Therefore, this short length-scale struggles to fill in the gaps in the subsampled data. Indeed, all of the high count cells (above 5) appear in the subsampled dataset; the rest of cells draw little information from the subsampled dataset but are approximately distributed as the prior.
+%
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.31\linewidth}
+		\includegraphics[width=\linewidth]{c-hat-l-small.png}
+		\caption{Small length-scale $l=0.01$}
+		\label{fig:l-small}
+	\end{subfigure}
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{c-hat-l-big.png}
+		\caption{Large length-scale $l=100$}
+		\label{fig:l-big}
+	\end{subfigure}
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{error-with-l.png}
+		\caption{Absolute error field $|\hat{c}^*_j - c_j|$}
+		\label{fig:error-with-l}
+	\end{subfigure}
+	\caption{Impact of length-scale $l$ on model performance}
+	\label{fig:l-effect-bikes}
+\end{figure}
+
+The large length-scale $l=100$ on figure \ref{fig:l-big} only permits very slow variation. Indeed, all West-East variation is practically eliminated leaving only North-South variation. Clearly this does not fit the data well but could be a useful first order model.
+
+We could choose $l$ by looking only at the mean absolute error (plotted in figure \ref{fig:error-with-l}) but this seems to favour very small values of length-scale as the observed data is rather noisy. Indeed, the choice of $l$ would best be suited by collecting further data for the model. Lewisham borough has an area of 35 km$^2$ meaning that each of the $N=207$ cells has side-length of approximately 400m. Now we would choose our length-scale $l$ to be the approximate radius in which a bike thief operates. This makes the suggestion of $l=2$ corresponding to 800 m seem rather reasonable.
+
+Indeed, we could apply a full Bayesian approach as in equation \ref{eqn:bayes} to inform our choice of $l$. This would necessarily involve a choice of prior informed by assumptions about bike thief radii of operation and an analysis of the model evidence $p(\tilde{c} | l)$.
+
+\section{Conclusion}
+
+In conclusion, we have shown that subsampling and inference using a Monte-Carlo Markoc-Chain (MCMC) can satisfactorily infer a latent field. Once the theory was shown to work on computer generated data we applied it to model bike thefts in Lewisham borough.
+
+Indeed, the inferred field can be used to predict bike theft hotspots and removes much of the noise associated with real world data. This tool could be very useful for city planners or law enforcement officers seeking. However, the tools are very generic and can be applied to a whole host of other problems.
 \end{document}
