@@ -44,6 +44,7 @@
 \newcommand{\iid}{\stackrel{iid}{\sim}}
 \newcommand{\betaml}{\hat{\beta}^{ML}}
 \newcommand{\Expect}{\mathbb{E}}
+\newcommand{\cbold}{\boldsymbol{c}}
 \newcommand{\tbold}{\boldsymbol{t}}
 \newcommand{\xbold}{\boldsymbol{x}}
 \newcommand{\ubold}{\boldsymbol{u}}
@@ -51,6 +52,7 @@
 \newcommand{\wbold}{\boldsymbol{w}}
 \newcommand{\zbold}{\boldsymbol{z}}
 \newcommand{\epsbold}{\boldsymbol{\epsilon}}
+\newcommand{\thetabold}{\boldsymbol{\theta}}
 \newcommand{\zetabold}{\boldsymbol{\zeta^*}}
 \newcommand{\omegabold}{\boldsymbol{\omega}}
 \newcommand{\Rho}{\mathcal{P}}
@@ -394,13 +396,126 @@ This is a Monte-Carlo estimate, using the generated samples. We can plot the pre
 
 \subsection{Length scale inference}
 
-We now make hard assignments in the probit classification problem by thresholding at $p(t^*=1 | \tbold) = 0.5$.
+We now make hard assignments in the probit classification problem by thresholding at $p(t^*=1 | \tbold) = 0.5$ such that:
+%
+\begin{equation}
+	\hat{t}^*_j = 
+	\begin{cases}
+		+1, & \text{if } p(t^*_j = 1 | \tbold) \geq 0.5\\
+		-1,              & \text{otherwise}
+	\end{cases}
+\end{equation}
+From this we can plot the absolute prediction error $|(\hat{t}^*_j - u_j)/2|$ and compute the mean $\eta$ over the index $j$ - which is equal to the probability of prediction error $\eta = p(t^*_j \neq \textrm{sign}(u_j))$ for general $j$. The hard assignments alongside the absolute errors are plotted in figure \ref{fig:t-hard-err}.
+%
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{t-hard.png}
+		\caption{Hard predictions $\hat{\tbold}^*$}
+		\label{fig:t-hard}
+	\end{subfigure}
+	\begin{subfigure}{0.31\linewidth}
+		\includegraphics[width=\linewidth]{t-abs-error.png}
+		\caption{Absolute error $|(\hat{t}^*_j - u_j)/2|$}
+		\label{fig:t-err}
+	\end{subfigure}
+	\caption{Hard assignment prediction error ($D=16, T=10^4, \beta=0.2, l=0.3$)}
+	\label{fig:t-hard-err}
+\end{figure}
+
+The plot in figure \ref{fig:t-err} gives a mean absolute error $\eta=0.125$. However, we wish to infer the length scale parameter $l$ by performing a line-search and minimising the mean absolute error $\eta$. This can be illustrated through a coarse logarithmic plot in the range $l \in [0.01, 10]$ and a finer linear plot in the range $l \in [0.2, 0.4]$ as in figures \ref{fig:l-coarse} and \ref{fig:l-fine} respectively.
+%
+\begin{figure}[!h]
+	\centering
+	\begin{subfigure}{0.32\linewidth}
+		\includegraphics[width=\linewidth]{l-coarse.png}
+		\caption{Coarse logarithmic scale}
+		\label{fig:l-coarse}
+	\end{subfigure}
+	\begin{subfigure}{0.31\linewidth}
+		\includegraphics[width=\linewidth]{l-fine.png}
+		\caption{Fine linear scale}
+		\label{fig:l-fine}
+	\end{subfigure}
+	\caption{Prediction error $\eta$ against length-scale $l$}
+	\label{fig:l-optimisation}
+\end{figure}
+
+It is rather computationally intensive to generate these plots in figure \ref{fig:l-optimisation}. We could instead perform a golden ratio line search to find the minimum. However, as each $\eta$ evaluation is non-deterministic the overall function would not be smooth for practical values of $n$ so this method is likely to have high error. By inspecting figure \ref{fig:l-fine} it is hard to obtain a point-estimate due to the uncertainty in each point. The best estimate would be $\hat{l} = 0.325 \pm 0.5$. This range encompasses the true value $l_0 = 0.3$. Therefore, inference in this case has succeeded.
+
+Nevertheless, the method used to infer the estimate is hardly robust. A more generalisable approach can be obtained by returning to Bayes' rule in its full form and making explicit the dependence on length-scale $l$:
+%
+\begin{equation}
+	p(\ubold | \tbold, l) = \frac{p(\ubold | l) \cdot p(\tbold | \ubold, l)}{p(\tbold | l)}
+\end{equation}
+
+The term $p(\tbold | l)$ is independent of $\ubold$ and called the model evidence. It can be computed through a Monte-Carlo estimate as follows:
+%
+\begin{align}
+	p(\tbold | l) &= \int p(\tbold | \ubold, l) \cdot p(\ubold | l) d\ubold = \int p(\tbold | \ubold) \cdot p(\ubold | l) d\ubold  \nonumber \\
+	&\approx \frac{1}{T} \sum_{i=1}^{T} p(\tbold | \ubold^{(i)}) \quad \textrm{for } \ubold^{(i)} \sim p(\ubold | l) \nonumber \\
+	&= \frac{1}{T} \sum_{i=1}^{T} \prod_{j=1}^{M} \Phi(t_j \cdot [G\ubold^{(i)}]_j)
+\end{align}
+
+With this equation we can compute a Maximum-Likelihood estimate $\hat{l}^{ML} = \argmax_l p(\tbold | l)$; this is equivalent to maximising the model evidence. If we wanted to give $l$ a full Bayesian treatment, we would define a prior $p(l)$ and compute the posterior $p(l | \tbold) \propto p(l) \cdot p(\tbold | l)$. The posterior would be a complete probability distribution rather than a single point-estimate.
+
+\pagebreak
 \section{Spatial Data}
+
+We now turn our attention to real-world data. Specifically, we wish to develop a model to predict bike thefts in Lewisham borough based on spatial theft data. We have a series of 400m$^2$ cells identified by a $(x, y)$ coordinate and for each cell we have the total number of bike thefts within over 2015. This is denoted by a vector $\cbold$.
 
 \subsection{Poisson Likelihood}
 
-\subsection{Monte Carlo Estimation}
+We now deal with a Poisson likelihood. The field $\ubold$ is mapped to $\thetabold = \exp (\ubold)$ for positivity (there cannot be negative thefts in a region) and $\theta$ is used as the Poisson rate for each cell. The overall likelihood function is given below:
+%
+\begin{equation}
+	p(\cbold | \thetabold) = \prod_{i=1}^{N} p(c_i | \theta_i)
+	= \prod_{i=1}^{N} \frac{\exp (-\theta_i) \cdot \theta_i^{c_i}}{c_i!}
+\end{equation}
 
-\textbf{Words}: XX
+As always we prefer to work with the log-likelihood giving us:
+%
+\begin{align}
+	\ln p (\cbold | \thetabold) &= \sum_{i=1}^{N} \left( - \theta_i + c_i \ln \theta_i - \ln (c_i !) \right)
+\end{align}
+
+Substituting for $\thetabold = \exp (u)$ we get:
+%
+\begin{align}
+	\loglik(\ubold) &= \sum_{i=1}^{N} \left(- 
+		\exp(u_i) + c_i \cdot u_i - \ln(c_i !)
+	\right) \nonumber \\
+	&= - \mathbf{1}^T \exp(\ubold) + \cbold^T \ubold - f(\cbold)
+	\label{eqn:log-lik-poisson}
+\end{align}
+
+We can ignore the term $f(\cbold)$ for the purposes of pCN as it is independent of $\ubold$ and we are only interested in the difference of $\loglik$. Once we implement $\loglik(\ubold)$ we can use pCN to sample from the posterior $p(\ubold | \cbold)$ with our standard operating parameters. Nevertheless, we must begin by guessing the length-scale parameter $l$ as this is not known in advance. This is covered in the subsequent section.
+
+\subsection{Bike theft predictions}
+
+We wish to estimate the expected counts in each cell from the predictive distribution on a new cell $c_j^*$ given the subsampled counts $\cbold$:
+%
+\begin{equation}
+	\Expect_{p(c_j^*| \cbold)}[c^*] = \sum_{k=0}^{\infty} k \cdot p(c_j^* = k | \cbold)
+	\label{eqn:c-star-expect-start}
+\end{equation}
+
+The predictive distribution can be computed through a Monte-Carlo estimate as follows:
+%
+\begin{align}
+	p(c_j^* = k | \cbold) &= \int p(c_j^* = k | \ubold) \cdot p(\ubold | \cbold) d\ubold \nonumber \\
+	&\approx \frac{1}{T} \sum_{i=1}^{T} p(c_j^* = k | \ubold^{(i)}) \quad \textrm{for } \ubold^{(i)} \sim p(\ubold | \cbold)
+\end{align}
+
+Substituting into equation \ref{eqn:c-star-expect-start} we can rearrange to obtain:
+%
+\begin{align}
+	\Expect_{p(c_j^*| \cbold)}[c_j^*] &\approx \sum_{k=0}^{\infty} k \cdot \frac{1}{T} \sum_{i=1}^{T} p(c_j^* = k | \ubold^{(i)}) \nonumber \\
+	&= \frac{1}{T} \sum_{i=1}^{T} \sum_{k=0}^{\infty} k \cdot p(c^*_j = k | \theta^{(i)}_j) \nonumber \\
+	&= \frac{1}{T} \sum_{i=1}^{T} \Expect_{p(c_j^*| \theta_j^{(i)})} [c_j^*] \nonumber \\
+	&= \frac{1}{T} \sum_{i=1}^{T} \theta_j^{(i)} \label{eqn:c-star-expect-final}
+\end{align}
+
+Where the last line holds as the expectation of a Poisson variable is simply its parameter. Therefore, we can perform pCN with the subsampled counts $\cbold$ to produce samples $\ubold^{(i)} \sim p(\ubold | \cbold)$. From these we can compute the expected count field by transforming $\thetabold^{(i)} = \exp (\ubold^{(i)})$ and applying equation \ref{eqn:c-star-expect-final}.
 
 \end{document}
