@@ -78,8 +78,6 @@
 	Lastly, we apply these tools to a real-world inference problem: modelling bike theft in the London Borough of Lewisham. pCN is once again used with some modifications to infer the underlying field from subsamples of its realisations. We find good agreement between model and observed data. However, the model's predictive power may be more useful if its length-scale is chosen from sound analysis of the problem a priori. Indeed, choosing the length-scale to minimise the prediction error runs the risk of overfitting to this particular dataset. Nevertheless, a full Bayesian treatment can be applied to augment the prior information with the likelihood information from the realised dataset. 
 \end{abstract}
 
-\tableofcontents
-
 \section{Simulation}
 \subsection{Sampling from a Gaussian Process}
 
@@ -580,7 +578,7 @@ Lastly, we visualise the impact of extreme values of length-scale $l$ on the inf
 
 The large length-scale $l=100$ on figure \ref{fig:l-big} only permits very slow variation. Indeed, all West-East variation is practically eliminated leaving only North-South variation. Clearly this does not fit the data well but could be a useful first order model.
 
-We could choose $l$ by looking only at the mean absolute error (plotted in figure \ref{fig:error-with-l}) but this seems to favour very small values of length-scale as the observed data is rather noisy. Indeed, the choice of $l$ would best be suited by collecting further data for the model. Lewisham borough has an area of 35 km$^2$ meaning that each of the $N=207$ cells has side-length of approximately 400m. Now we would choose our length-scale $l$ to be the approximate radius in which a bike thief operates. This makes the suggestion of $l=2$ corresponding to 800 m seem rather reasonable.
+We could choose $l$ by looking only at the mean absolute error (plotted in figure \ref{fig:error-with-l}) but this seems to favour very small values of length-scale as the observed data is rather noisy. Indeed, the choice of $l$ would best be suited by collecting further data for the model. Lewisham borough has an area of 35 km$^2$ meaning that each of the $N=207$ cells has side-length of approximately 400m. Now we would choose our length-scale $l$ to be the approximate radius in which a bike thief operates. This makes the suggestion of $l=2$ corresponding to 800m seem rather reasonable.
 
 Indeed, we could apply a full Bayesian approach as in equation \ref{eqn:bayes} to inform our choice of $l$. This would necessarily involve a choice of prior informed by assumptions about bike thief radii of operation and an analysis of the model evidence $p(\tilde{c} | l)$.
 
